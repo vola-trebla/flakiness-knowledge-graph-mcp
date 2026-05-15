@@ -1,6 +1,6 @@
 import { readFileSync, existsSync, writeFileSync } from "fs";
 import initSqlJs, { Database } from "sql.js";
-import { TestRun, FlakinessStats } from "./types.js";
+import { TestRun, FlakinessStats, ErrorGroup, TrendBucket } from "./types.js";
 
 // Per-path DB handles so multiple projects don't share state
 const dbCache = new Map<string, Database>();
@@ -153,6 +153,56 @@ export async function getSlowTests(
     LIMIT ${limit}
   `);
   return rowsToObjects(res);
+}
+
+export async function getErrorGroups(
+  path: string,
+  {
+    minFailures = 2,
+    limit = 20,
+    since,
+  }: { minFailures?: number; limit?: number; since?: number } = {}
+): Promise<ErrorGroup[]> {
+  const database = await getDb(path);
+  const sinceClause = since ? `AND timestamp >= ${since}` : "";
+  const res = database.exec(`
+    SELECT
+      SUBSTR(TRIM(error), 1, 200) AS error_signature,
+      COUNT(DISTINCT test_id) AS affected_tests,
+      COUNT(*) AS total_failures,
+      GROUP_CONCAT(DISTINCT test_id) AS test_ids,
+      GROUP_CONCAT(DISTINCT title) AS titles,
+      MAX(timestamp) AS last_seen
+    FROM test_runs
+    WHERE status IN ('failed', 'flaky') AND error IS NOT NULL ${sinceClause}
+    GROUP BY error_signature
+    HAVING total_failures >= ${minFailures}
+    ORDER BY total_failures DESC
+    LIMIT ${limit}
+  `);
+  return rowsToObjects<ErrorGroup>(res);
+}
+
+export async function getFlakinessTrend(
+  path: string,
+  testId: string,
+  { days = 30 }: { days?: number } = {}
+): Promise<TrendBucket[]> {
+  const database = await getDb(path);
+  const since = Date.now() - days * 86_400_000;
+  const res = database.exec(
+    `SELECT
+      date(timestamp / 1000, 'unixepoch') AS day,
+      COUNT(*) AS total_runs,
+      SUM(CASE WHEN status IN ('failed', 'flaky') THEN 1 ELSE 0 END) AS failures,
+      ROUND(CAST(SUM(CASE WHEN status IN ('failed', 'flaky') THEN 1 ELSE 0 END) AS REAL) / COUNT(*), 4) AS flakiness_rate
+    FROM test_runs
+    WHERE test_id = ? AND timestamp >= ?
+    GROUP BY day
+    ORDER BY day ASC`,
+    [testId, since]
+  );
+  return rowsToObjects<TrendBucket>(res);
 }
 
 function rowsToObjects<T>(queryResult: ReturnType<Database["exec"]>): T[] {

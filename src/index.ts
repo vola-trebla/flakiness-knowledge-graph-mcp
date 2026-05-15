@@ -2,7 +2,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod/v4";
-import { getFlakyTests, getTestHistory, getFailurePatterns, getSlowTests } from "./db.js";
+import {
+  getFlakyTests,
+  getTestHistory,
+  getFailurePatterns,
+  getSlowTests,
+  getErrorGroups,
+  getFlakinessTrend,
+} from "./db.js";
 
 const server = new McpServer({
   name: "flakiness-knowledge-graph",
@@ -136,6 +143,74 @@ server.registerTool(
           {
             type: "text",
             text: JSON.stringify({ total: tests.length, slow_tests: tests }, null, 2),
+          },
+        ],
+      };
+    } catch (err) {
+      return errorResponse(err);
+    }
+  }
+);
+
+server.registerTool(
+  "get_error_groups",
+  {
+    description:
+      "Groups failing tests by similar error messages to surface systemic failures. " +
+      "Use to answer: are 10 tests failing because of the same broken endpoint or shared root cause?",
+    inputSchema: dbInputSchema.extend({
+      min_failures: z
+        .number()
+        .int()
+        .min(1)
+        .default(2)
+        .describe("Minimum number of failures sharing the same error to include"),
+      limit: z.number().int().min(1).max(100).default(20).describe("Max error groups to return"),
+      since_days: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe("Only include failures from the last N days"),
+    }),
+  },
+  async ({ db_path, min_failures, limit, since_days }) => {
+    try {
+      const since = since_days ? Date.now() - since_days * 86_400_000 : undefined;
+      const groups = await getErrorGroups(db_path, { minFailures: min_failures, limit, since });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ total: groups.length, error_groups: groups }, null, 2),
+          },
+        ],
+      };
+    } catch (err) {
+      return errorResponse(err);
+    }
+  }
+);
+
+server.registerTool(
+  "get_flakiness_trend",
+  {
+    description:
+      "Returns the daily flakiness rate for a specific test over the last N days. " +
+      "Use to answer: is this test getting worse, better, or staying the same?",
+    inputSchema: dbInputSchema.extend({
+      test_id: z.string().describe("Test ID from get_flaky_tests"),
+      days: z.number().int().min(1).max(365).default(30).describe("Number of days to look back"),
+    }),
+  },
+  async ({ db_path, test_id, days }) => {
+    try {
+      const trend = await getFlakinessTrend(db_path, test_id, { days });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ test_id, days, buckets: trend }, null, 2),
           },
         ],
       };

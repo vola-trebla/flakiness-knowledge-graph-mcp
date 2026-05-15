@@ -27,6 +27,22 @@ export interface FlakinessStats {
   last_seen: number;
 }
 
+export interface ErrorGroup {
+  error_signature: string;
+  affected_tests: number;
+  total_failures: number;
+  test_ids: string;
+  titles: string;
+  last_seen: number;
+}
+
+export interface TrendBucket {
+  day: string;
+  total_runs: number;
+  failures: number;
+  flakiness_rate: number;
+}
+
 export interface DbConfig {
   dbPath: string;
 }
