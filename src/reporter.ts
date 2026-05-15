@@ -14,19 +14,13 @@ export interface FlakinessReporterOptions {
 
 class FlakinessReporter implements Reporter {
   private dbPath: string;
-  private browser: string = "chromium";
   private os: string = process.platform;
 
   constructor(options: FlakinessReporterOptions = {}) {
     this.dbPath = options.dbPath ?? "flakiness.db";
   }
 
-  onBegin(config: FullConfig, _suite: Suite): void {
-    const project = config.projects[0];
-    if (project?.use?.browserName) {
-      this.browser = project.use.browserName;
-    }
-  }
+  onBegin(_config: FullConfig, _suite: Suite): void {}
 
   async onTestEnd(test: TestCase, result: TestResult): Promise<void> {
     const outcome = test.outcome();
@@ -39,6 +33,9 @@ class FlakinessReporter implements Reporter {
             ? "passed"
             : "failed";
 
+    // Resolve the actual browser from the test's own project, not config.projects[0]
+    const browser = test.parent.project()?.use?.browserName ?? "chromium";
+
     const error = result.errors[0]?.message ?? result.errors[0]?.value ?? undefined;
 
     await insertRun(this.dbPath, {
@@ -48,10 +45,10 @@ class FlakinessReporter implements Reporter {
       file: test.location.file,
       status,
       duration_ms: result.duration,
-      browser: this.browser,
+      browser,
       os: this.os,
       timestamp: Date.now(),
-      error: error ? String(error).slice(0, 500) : undefined,
+      error: error ? String(error).slice(0, 1000) : undefined,
       retry: result.retry,
     });
   }
