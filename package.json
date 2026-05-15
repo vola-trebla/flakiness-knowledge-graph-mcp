@@ -4,20 +4,36 @@
   "description": "MCP server + Playwright reporter that builds a flakiness knowledge graph from test run history",
   "type": "module",
   "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./reporter": "./dist/reporter.js"
+  },
+  "bin": {
+    "flakiness-knowledge-graph-mcp": "./dist/index.js",
+    "flakiness-graph-seed": "./dist/seed.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "lint": "eslint src",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "seed": "node dist/seed.js"
   },
   "keywords": [
     "playwright",
     "mcp",
     "flakiness",
-    "testing"
+    "testing",
+    "sqlite",
+    "sdet"
   ],
-  "author": "",
+  "author": "vola-trebla",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
