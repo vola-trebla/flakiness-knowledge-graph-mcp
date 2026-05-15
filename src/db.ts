@@ -2,26 +2,24 @@ import { readFileSync, existsSync, writeFileSync } from "fs";
 import initSqlJs, { Database } from "sql.js";
 import { TestRun, FlakinessStats } from "./types.js";
 
-let db: Database | null = null;
-let dbPath: string | null = null;
+// Per-path DB handles so multiple projects don't share state
+const dbCache = new Map<string, Database>();
+
+// Per-path write queues to serialise concurrent worker writes
+const writeQueues = new Map<string, Promise<void>>();
 
 async function getDb(path: string): Promise<Database> {
-  if (db && dbPath === path) return db;
+  const cached = dbCache.get(path);
+  if (cached) return cached;
   const SQL = await initSqlJs();
-  if (existsSync(path)) {
-    const fileBuffer = readFileSync(path);
-    db = new SQL.Database(fileBuffer);
-  } else {
-    db = new SQL.Database();
-  }
-  dbPath = path;
+  const db = existsSync(path) ? new SQL.Database(readFileSync(path)) : new SQL.Database();
   applySchema(db);
+  dbCache.set(path, db);
   return db;
 }
 
 function persist(database: Database, path: string): void {
-  const data = database.export();
-  writeFileSync(path, Buffer.from(data));
+  writeFileSync(path, Buffer.from(database.export()));
 }
 
 function applySchema(database: Database): void {
@@ -45,27 +43,39 @@ function applySchema(database: Database): void {
   `);
 }
 
+// Serialise all writes through a per-path promise chain so parallel
+// Playwright workers never race to overwrite the same file.
 export async function insertRun(path: string, run: Omit<TestRun, "id">): Promise<void> {
-  const database = await getDb(path);
-  database.run(
-    `INSERT INTO test_runs
-     (test_id, title, suite, file, status, duration_ms, browser, os, timestamp, error, retry)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      run.test_id,
-      run.title,
-      run.suite,
-      run.file,
-      run.status,
-      run.duration_ms,
-      run.browser,
-      run.os,
-      run.timestamp,
-      run.error ?? null,
-      run.retry,
-    ]
-  );
-  persist(database, path);
+  const prev = writeQueues.get(path) ?? Promise.resolve();
+  const next = prev.then(async () => {
+    // Re-read from disk each time so we don't miss writes from other workers
+    const SQL = await initSqlJs();
+    const db = existsSync(path) ? new SQL.Database(readFileSync(path)) : new SQL.Database();
+    applySchema(db);
+    dbCache.set(path, db);
+
+    db.run(
+      `INSERT INTO test_runs
+       (test_id, title, suite, file, status, duration_ms, browser, os, timestamp, error, retry)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        run.test_id,
+        run.title,
+        run.suite,
+        run.file,
+        run.status,
+        run.duration_ms,
+        run.browser,
+        run.os,
+        run.timestamp,
+        run.error ?? null,
+        run.retry,
+      ]
+    );
+    persist(db, path);
+  });
+  writeQueues.set(path, next);
+  await next;
 }
 
 export async function getFlakyTests(
