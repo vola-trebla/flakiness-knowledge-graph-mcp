@@ -4,18 +4,18 @@ A Playwright custom reporter + MCP server that builds a local flakiness knowledg
 
 ## 🤔 The Problem
 
-A single Playwright trace tells you *what* failed right now. It doesn't tell you whether this test has been silently flaking for two weeks, or only fails on Firefox in CI, or is getting slower with every release.
+A single Playwright trace tells you _what_ failed right now. It doesn't tell you whether this test has been silently flaking for two weeks, or only fails on Firefox in CI, or is getting slower with every release.
 
 This tool fixes that by accumulating run history into a SQLite database and exposing it to AI agents via MCP.
 
 ## 🛠️ Tools
 
-| Tool | Arguments | What it returns |
-|------|-----------|----------------|
-| `get_flaky_tests` | `db_path`, `min_runs?`, `limit?`, `since_days?` | Tests ranked by flakiness rate (failed+flaky / total runs) |
-| `get_test_history` | `db_path`, `test_id`, `limit?` | Full run history for a specific test — status, duration, error, retry, browser, OS |
-| `get_failure_patterns` | `db_path`, `since_days?` | Failure rates broken down by browser × OS combination |
-| `get_slow_tests` | `db_path`, `limit?` | Tests ranked by average duration |
+| Tool                   | Arguments                                       | What it returns                                                                    |
+| ---------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `get_flaky_tests`      | `db_path`, `min_runs?`, `limit?`, `since_days?` | Tests ranked by flakiness rate (failed+flaky / total runs)                         |
+| `get_test_history`     | `db_path`, `test_id`, `limit?`                  | Full run history for a specific test — status, duration, error, retry, browser, OS |
+| `get_failure_patterns` | `db_path`, `since_days?`                        | Failure rates broken down by browser × OS combination                              |
+| `get_slow_tests`       | `db_path`, `limit?`                             | Tests ranked by average duration                                                   |
 
 ## 🚀 Setup
 
@@ -36,7 +36,7 @@ export default defineConfig({
     ["html"],
     [
       "/absolute/path/to/flakiness-knowledge-graph-mcp/dist/reporter.js",
-      { dbPath: "./flakiness.db" }
+      { dbPath: "./flakiness.db" },
     ],
   ],
 });
