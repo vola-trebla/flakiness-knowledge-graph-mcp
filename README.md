@@ -10,12 +10,14 @@ This tool fixes that by accumulating run history into a SQLite database and expo
 
 ## 🛠️ Tools
 
-| Tool                   | Arguments                                       | What it returns                                                                    |
-| ---------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `get_flaky_tests`      | `db_path`, `min_runs?`, `limit?`, `since_days?` | Tests ranked by flakiness rate (failed+flaky / total runs)                         |
-| `get_test_history`     | `db_path`, `test_id`, `limit?`                  | Full run history for a specific test — status, duration, error, retry, browser, OS |
-| `get_failure_patterns` | `db_path`, `since_days?`                        | Failure rates broken down by browser × OS combination                              |
-| `get_slow_tests`       | `db_path`, `limit?`                             | Tests ranked by average duration                                                   |
+| Tool                   | Arguments                                           | What it returns                                                                    |
+| ---------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `get_flaky_tests`      | `db_path`, `min_runs?`, `limit?`, `since_days?`     | Tests ranked by flakiness rate (failed+flaky / total runs)                         |
+| `get_test_history`     | `db_path`, `test_id`, `limit?`                      | Full run history for a specific test — status, duration, error, retry, browser, OS |
+| `get_failure_patterns` | `db_path`, `since_days?`                            | Failure rates broken down by browser × OS combination                              |
+| `get_slow_tests`       | `db_path`, `limit?`                                 | Tests ranked by average duration                                                   |
+| `get_error_groups`     | `db_path`, `min_failures?`, `limit?`, `since_days?` | Failures clustered by error message — surfaces shared root causes across tests     |
+| `get_flakiness_trend`  | `db_path`, `test_id`, `days?`                       | Daily flakiness rate over the last N days — shows whether a test is getting worse  |
 
 ## 🚀 Setup
 
@@ -73,8 +75,10 @@ I've been running my Playwright suite for two weeks. The DB is at /my-project/fl
 
 1. get_flaky_tests — which tests are most unreliable? Show last 7 days only.
 2. get_test_history for the top flaky test — is it getting worse?
-3. get_failure_patterns — does it only fail on a specific browser or OS?
-4. get_slow_tests — which tests should I optimize for CI speed?
+3. get_flakiness_trend for the same test over 14 days — plot the daily rate.
+4. get_failure_patterns — does it only fail on a specific browser or OS?
+5. get_error_groups — are multiple tests failing with the same error? That's a backend issue.
+6. get_slow_tests — which tests should I optimize for CI speed?
 ```
 
 ## 🔗 Works great with playwright-trace-decoder-mcp
