@@ -21,7 +21,13 @@ This tool fixes that by accumulating run history into a SQLite database and expo
 
 ## 🚀 Setup
 
-### 1. Build from source
+### 1. Install
+
+```bash
+npm install -g flakiness-knowledge-graph-mcp
+```
+
+Or build from source:
 
 ```bash
 git clone https://github.com/vola-trebla/flakiness-knowledge-graph-mcp.git
@@ -34,13 +40,7 @@ npm install && npm run build
 ```ts
 // playwright.config.ts
 export default defineConfig({
-  reporter: [
-    ["html"],
-    [
-      "/absolute/path/to/flakiness-knowledge-graph-mcp/dist/reporter.js",
-      { dbPath: "./flakiness.db" },
-    ],
-  ],
+  reporter: [["html"], ["flakiness-knowledge-graph-mcp/reporter", { dbPath: "./flakiness.db" }]],
 });
 ```
 
@@ -54,8 +54,7 @@ Run your tests normally — the reporter writes every result to `flakiness.db` a
 {
   "mcpServers": {
     "flakiness-knowledge-graph": {
-      "command": "node",
-      "args": ["/absolute/path/to/flakiness-knowledge-graph-mcp/dist/index.js"]
+      "command": "flakiness-knowledge-graph-mcp"
     }
   }
 }
@@ -64,9 +63,18 @@ Run your tests normally — the reporter writes every result to `flakiness.db` a
 #### Claude Code
 
 ```bash
-claude mcp add flakiness-knowledge-graph \
-  node /absolute/path/to/flakiness-knowledge-graph-mcp/dist/index.js
+claude mcp add flakiness-knowledge-graph flakiness-knowledge-graph-mcp
 ```
+
+### 4. Try it with demo data
+
+No Playwright project yet? Generate 30 days of realistic sample data:
+
+```bash
+npx flakiness-graph-seed ./demo.db
+```
+
+Then point your AI agent at `./demo.db` to explore all 6 tools.
 
 ## 💬 Example usage
 
@@ -115,6 +123,7 @@ npm run build        # compile TypeScript → dist/
 npm run lint         # ESLint
 npm run format       # Prettier --write
 npm run format:check # Prettier check (used in CI)
+npm run seed         # populate flakiness.db with 30 days of demo data
 ```
 
 ## 📄 License
