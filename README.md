@@ -1,5 +1,10 @@
 # 📊 flakiness-knowledge-graph-mcp
 
+[![npm version](https://img.shields.io/npm/v/flakiness-knowledge-graph-mcp.svg)](https://www.npmjs.com/package/flakiness-knowledge-graph-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/flakiness-knowledge-graph-mcp.svg)](https://www.npmjs.com/package/flakiness-knowledge-graph-mcp)
+[![CI](https://github.com/vola-trebla/flakiness-knowledge-graph-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/vola-trebla/flakiness-knowledge-graph-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A Playwright custom reporter + MCP server that builds a local flakiness knowledge graph from your test run history. Ask your AI agent which tests are unreliable, on which browser, and whether they're getting worse.
 
 ## 🤔 The Problem
