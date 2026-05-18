@@ -25,7 +25,6 @@ const NORMALIZERS: Array<[RegExp, string]> = [
   [/\s+/g, " "],
 ];
 
- 
 const ANSI_RE = /\x1b\[[0-9;]*[mGKHF]/g;
 
 export function normalizeError(msg: string): string {
