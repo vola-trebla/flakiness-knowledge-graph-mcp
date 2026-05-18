@@ -9,7 +9,9 @@ import {
   getSlowTests,
   getErrorGroups,
   getFlakinessTrend,
+  getRawFailures,
 } from "./db.js";
+import { clusterErrors } from "./clustering.js";
 
 const server = new McpServer({
   name: "flakiness-knowledge-graph",
@@ -211,6 +213,50 @@ server.registerTool(
           {
             type: "text",
             text: JSON.stringify({ test_id, days, buckets: trend }, null, 2),
+          },
+        ],
+      };
+    } catch (err) {
+      return errorResponse(err);
+    }
+  }
+);
+
+server.registerTool(
+  "cluster_semantic_error_trees",
+  {
+    description:
+      "Groups test failures by semantic error similarity rather than raw string prefix. " +
+      "Strips dynamic values (UUIDs, numeric IDs, hashes, timestamps, URLs) via regex, then " +
+      "applies Levenshtein fuzzy matching to merge errors that differ only in minor dynamic " +
+      "fragments. Classifies each cluster by taxonomy (TimeoutError, AssertionError, " +
+      "NetworkError, ReferenceError). Use instead of get_error_groups when failure messages " +
+      "contain dynamic IDs or selector attributes that make identical root causes look different.",
+    inputSchema: dbInputSchema.extend({
+      min_instances: z
+        .number()
+        .int()
+        .min(1)
+        .default(2)
+        .describe("Minimum number of failure instances to include a cluster"),
+      since_days: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe("Only include failures from the last N days"),
+    }),
+  },
+  async ({ db_path, min_instances, since_days }) => {
+    try {
+      const since = since_days ? Date.now() - since_days * 86_400_000 : undefined;
+      const failures = await getRawFailures(db_path, { since });
+      const clusters = clusterErrors(failures).filter((c) => c.instance_count >= min_instances);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ total_clusters: clusters.length, clusters }, null, 2),
           },
         ],
       };
