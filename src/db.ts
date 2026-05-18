@@ -205,6 +205,22 @@ export async function getFlakinessTrend(
   return rowsToObjects<TrendBucket>(res);
 }
 
+export async function getRawFailures(
+  path: string,
+  { limit = 1000, since }: { limit?: number; since?: number } = {}
+): Promise<Array<{ error: string; test_id: string; timestamp: number }>> {
+  const database = await getDb(path);
+  const sinceClause = since ? `AND timestamp >= ${since}` : "";
+  const res = database.exec(`
+    SELECT error, test_id, timestamp
+    FROM test_runs
+    WHERE status IN ('failed', 'flaky') AND error IS NOT NULL ${sinceClause}
+    ORDER BY timestamp DESC
+    LIMIT ${limit}
+  `);
+  return rowsToObjects(res);
+}
+
 function rowsToObjects<T>(queryResult: ReturnType<Database["exec"]>): T[] {
   if (!queryResult.length) return [];
   const { columns, values } = queryResult[0];
