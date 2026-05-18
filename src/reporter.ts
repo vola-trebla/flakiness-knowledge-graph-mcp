@@ -12,9 +12,24 @@ export interface FlakinessReporterOptions {
   dbPath?: string;
 }
 
+function resolveGitContext(): {
+  git_commit_sha: string | null;
+  git_branch: string | null;
+  git_author: string | null;
+} {
+  const e = process.env;
+  return {
+    git_commit_sha: e.GITHUB_SHA ?? e.CI_COMMIT_SHA ?? e.CIRCLE_SHA1 ?? e.GIT_COMMIT ?? null,
+    git_branch:
+      e.GITHUB_REF_NAME ?? e.CI_COMMIT_REF_NAME ?? e.CIRCLE_BRANCH ?? e.GIT_BRANCH ?? null,
+    git_author: e.GITHUB_ACTOR ?? e.GITLAB_USER_NAME ?? e.CIRCLE_USERNAME ?? e.BUILD_USER ?? null,
+  };
+}
+
 class FlakinessReporter implements Reporter {
   private dbPath: string;
   private os: string = process.platform;
+  private gitContext = resolveGitContext();
 
   constructor(options: FlakinessReporterOptions = {}) {
     this.dbPath = options.dbPath ?? "flakiness.db";
@@ -50,6 +65,7 @@ class FlakinessReporter implements Reporter {
       timestamp: Date.now(),
       error: error ? String(error).slice(0, 1000) : undefined,
       retry: result.retry,
+      ...this.gitContext,
     });
   }
 

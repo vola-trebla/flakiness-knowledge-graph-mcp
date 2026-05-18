@@ -11,6 +11,19 @@ export interface TestRun {
   timestamp: number;
   error?: string;
   retry: number;
+  git_commit_sha?: string | null;
+  git_branch?: string | null;
+  git_author?: string | null;
+}
+
+export interface GitFlakinessTransition {
+  test_id: string;
+  title: string;
+  transition_type: "stable_to_flaky" | "flaky_to_stable";
+  git_commit_sha: string | null;
+  git_branch: string | null;
+  git_author: string | null;
+  transition_date: string;
 }
 
 export interface FlakinessStats {

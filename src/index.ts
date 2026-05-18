@@ -10,6 +10,7 @@ import {
   getErrorGroups,
   getFlakinessTrend,
   getRawFailures,
+  correlateGitCommitFlakiness,
 } from "./db.js";
 import { clusterErrors } from "./clustering.js";
 
@@ -257,6 +258,54 @@ server.registerTool(
           {
             type: "text",
             text: JSON.stringify({ total_clusters: clusters.length, clusters }, null, 2),
+          },
+        ],
+      };
+    } catch (err) {
+      return errorResponse(err);
+    }
+  }
+);
+
+server.registerTool(
+  "correlate_git_commit_flakiness",
+  {
+    description:
+      "Finds the exact point where a test transitioned from stable to flaky (or back), " +
+      "and returns the git commit SHA, branch, and author at that transition. " +
+      "Requires the Playwright reporter to be running in a CI environment where " +
+      "GITHUB_SHA / CI_COMMIT_SHA / CIRCLE_SHA1 env vars are set. " +
+      "Use to answer: which commit broke this test, and who authored it?",
+    inputSchema: dbInputSchema.extend({
+      min_stable_runs: z
+        .number()
+        .int()
+        .min(1)
+        .default(3)
+        .optional()
+        .describe(
+          "Consecutive passes required to consider a test 'stable' before a transition (default 3)"
+        ),
+      since_days: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe("Only look at runs from the last N days"),
+    }),
+  },
+  async ({ db_path, min_stable_runs, since_days }) => {
+    try {
+      const since = since_days ? Date.now() - since_days * 86_400_000 : undefined;
+      const transitions = await correlateGitCommitFlakiness(db_path, {
+        since,
+        minStableRuns: min_stable_runs ?? 3,
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ total_transitions: transitions.length, transitions }, null, 2),
           },
         ],
       };
