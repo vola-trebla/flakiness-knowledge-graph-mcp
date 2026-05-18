@@ -1,6 +1,6 @@
 {
   "name": "flakiness-knowledge-graph-mcp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "MCP server + Playwright reporter that builds a flakiness knowledge graph from test run history",
   "type": "module",
   "main": "dist/index.js",
