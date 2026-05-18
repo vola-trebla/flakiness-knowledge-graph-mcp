@@ -59,5 +59,10 @@
     "src/**/*.ts": [
       "eslint --fix"
     ]
+  },
+  "mcpName": "io.github.vola-trebla/flakiness-knowledge-graph-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vola-trebla/flakiness-knowledge-graph-mcp.git"
   }
 }

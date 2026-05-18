@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.vola-trebla/flakiness-knowledge-graph-mcp",
+  "description": "MCP server + Playwright reporter that builds a flakiness knowledge graph from test run history",
+  "repository": {
+    "url": "https://github.com/vola-trebla/flakiness-knowledge-graph-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "flakiness-knowledge-graph-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
