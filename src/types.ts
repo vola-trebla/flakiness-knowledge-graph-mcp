@@ -4,7 +4,7 @@ export interface TestRun {
   title: string;
   suite: string;
   file: string;
-  status: "passed" | "failed" | "flaky" | "skipped";
+  status: 'passed' | 'failed' | 'flaky' | 'skipped';
   duration_ms: number;
   browser: string;
   os: string;
@@ -19,7 +19,7 @@ export interface TestRun {
 export interface GitFlakinessTransition {
   test_id: string;
   title: string;
-  transition_type: "stable_to_flaky" | "flaky_to_stable";
+  transition_type: 'stable_to_flaky' | 'flaky_to_stable';
   git_commit_sha: string | null;
   git_branch: string | null;
   git_author: string | null;

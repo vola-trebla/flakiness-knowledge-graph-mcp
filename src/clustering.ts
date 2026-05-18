@@ -5,24 +5,24 @@ export interface SemanticCluster {
   instance_count: number;
   affected_tests: number;
   error_taxonomy:
-    | "TimeoutError"
-    | "AssertionError"
-    | "NetworkError"
-    | "ReferenceError"
-    | "UnknownError";
+    | 'TimeoutError'
+    | 'AssertionError'
+    | 'NetworkError'
+    | 'ReferenceError'
+    | 'UnknownError';
   sample_test_ids: string[];
   last_seen: number;
 }
 
 // Order matters: longer/more specific patterns before shorter ones
 const NORMALIZERS: Array<[RegExp, string]> = [
-  [/https?:\/\/[^\s"')]+/g, "<url>"],
-  [/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<uuid>"],
-  [/0x[0-9a-f]{4,}/gi, "<hex>"],
-  [/[0-9a-f]{32,}/gi, "<hash>"],
-  [/\b\d{10,13}\b/g, "<ts>"],
-  [/\b\d+\b/g, "<num>"],
-  [/\s+/g, " "],
+  [/https?:\/\/[^\s"')]+/g, '<url>'],
+  [/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>'],
+  [/0x[0-9a-f]{4,}/gi, '<hex>'],
+  [/[0-9a-f]{32,}/gi, '<hash>'],
+  [/\b\d{10,13}\b/g, '<ts>'],
+  [/\b\d+\b/g, '<num>'],
+  [/\s+/g, ' '],
 ];
 
 export function normalizeError(msg: string): string {
@@ -33,13 +33,13 @@ export function normalizeError(msg: string): string {
   return s.trim();
 }
 
-export function classifyError(msg: string): SemanticCluster["error_taxonomy"] {
-  if (/timeout/i.test(msg)) return "TimeoutError";
-  if (/expect|assert|toEqual|toBe|toHave|Expected/i.test(msg)) return "AssertionError";
+export function classifyError(msg: string): SemanticCluster['error_taxonomy'] {
+  if (/timeout/i.test(msg)) return 'TimeoutError';
+  if (/expect|assert|toEqual|toBe|toHave|Expected/i.test(msg)) return 'AssertionError';
   if (/net::|ERR_|ECONNREFUSED|Failed to fetch|ETIMEDOUT|ENOTFOUND/i.test(msg))
-    return "NetworkError";
-  if (/ReferenceError|TypeError|is not defined|Cannot read/i.test(msg)) return "ReferenceError";
-  return "UnknownError";
+    return 'NetworkError';
+  if (/ReferenceError|TypeError|is not defined|Cannot read/i.test(msg)) return 'ReferenceError';
+  return 'UnknownError';
 }
 
 // Levenshtein distance capped at 100 chars per string
@@ -78,7 +78,7 @@ export function clusterErrors(
     test_id: string;
     timestamp: number;
     normalized: string;
-    taxonomy: SemanticCluster["error_taxonomy"];
+    taxonomy: SemanticCluster['error_taxonomy'];
   };
 
   const items: Item[] = failures.map((f) => ({

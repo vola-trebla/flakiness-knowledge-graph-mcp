@@ -1,12 +1,12 @@
-import { readFileSync, existsSync, writeFileSync } from "fs";
-import initSqlJs, { Database } from "sql.js";
+import { readFileSync, existsSync, writeFileSync } from 'fs';
+import initSqlJs, { Database } from 'sql.js';
 import {
   TestRun,
   FlakinessStats,
   ErrorGroup,
   TrendBucket,
   GitFlakinessTransition,
-} from "./types.js";
+} from './types.js';
 
 // Per-path DB handles so multiple projects don't share state
 const dbCache = new Map<string, Database>();
@@ -51,7 +51,7 @@ function applySchema(database: Database): void {
     CREATE INDEX IF NOT EXISTS idx_timestamp ON test_runs(timestamp);
   `);
   // Migration for existing tables that predate git columns
-  for (const col of ["git_commit_sha TEXT", "git_branch TEXT", "git_author TEXT"]) {
+  for (const col of ['git_commit_sha TEXT', 'git_branch TEXT', 'git_author TEXT']) {
     try {
       database.run(`ALTER TABLE test_runs ADD COLUMN ${col}`);
     } catch {
@@ -62,7 +62,7 @@ function applySchema(database: Database): void {
 
 // Serialise all writes through a per-path promise chain so parallel
 // Playwright workers never race to overwrite the same file.
-export async function insertRun(path: string, run: Omit<TestRun, "id">): Promise<void> {
+export async function insertRun(path: string, run: Omit<TestRun, 'id'>): Promise<void> {
   const prev = writeQueues.get(path) ?? Promise.resolve();
   const next = prev.then(async () => {
     // Re-read from disk each time so we don't miss writes from other workers
@@ -104,7 +104,7 @@ export async function getFlakyTests(
   { minRuns = 3, limit = 20, since }: { minRuns?: number; limit?: number; since?: number } = {}
 ): Promise<FlakinessStats[]> {
   const database = await getDb(path);
-  const sinceClause = since ? `AND timestamp >= ${since}` : "";
+  const sinceClause = since ? `AND timestamp >= ${since}` : '';
   const res = database.exec(`
     SELECT
       test_id,
@@ -142,7 +142,7 @@ export async function getFailurePatterns(
   { since }: { since?: number } = {}
 ): Promise<{ browser: string; os: string; failures: number; total: number; rate: number }[]> {
   const database = await getDb(path);
-  const sinceClause = since ? `WHERE timestamp >= ${since}` : "";
+  const sinceClause = since ? `WHERE timestamp >= ${since}` : '';
   const res = database.exec(`
     SELECT
       browser,
@@ -185,7 +185,7 @@ export async function getErrorGroups(
   }: { minFailures?: number; limit?: number; since?: number } = {}
 ): Promise<ErrorGroup[]> {
   const database = await getDb(path);
-  const sinceClause = since ? `AND timestamp >= ${since}` : "";
+  const sinceClause = since ? `AND timestamp >= ${since}` : '';
   const res = database.exec(`
     SELECT
       SUBSTR(TRIM(error), 1, 200) AS error_signature,
@@ -231,7 +231,7 @@ export async function getRawFailures(
   { limit = 1000, since }: { limit?: number; since?: number } = {}
 ): Promise<Array<{ error: string; test_id: string; timestamp: number }>> {
   const database = await getDb(path);
-  const sinceClause = since ? `AND timestamp >= ${since}` : "";
+  const sinceClause = since ? `AND timestamp >= ${since}` : '';
   const res = database.exec(`
     SELECT error, test_id, timestamp
     FROM test_runs
@@ -257,7 +257,7 @@ export async function correlateGitCommitFlakiness(
   { since, minStableRuns = 3 }: { since?: number; minStableRuns?: number } = {}
 ): Promise<GitFlakinessTransition[]> {
   const database = await getDb(path);
-  const sinceClause = since ? `AND timestamp >= ${since}` : "";
+  const sinceClause = since ? `AND timestamp >= ${since}` : '';
 
   // Fetch runs for tests that have both passing and failing/flaky results
   const res = database.exec(`
@@ -288,22 +288,22 @@ export async function correlateGitCommitFlakiness(
   for (const [, runs] of byTest) {
     let consecutivePasses = 0;
     let lastFailRun: RunRow | null = null;
-    type State = "unknown" | "stable" | "flaky";
-    let state: State = "unknown";
+    type State = 'unknown' | 'stable' | 'flaky';
+    let state: State = 'unknown';
 
     for (const run of runs) {
-      const isBad = run.status === "failed" || run.status === "flaky";
+      const isBad = run.status === 'failed' || run.status === 'flaky';
 
-      if (state === "unknown" || state === "stable") {
+      if (state === 'unknown' || state === 'stable') {
         if (!isBad) {
           consecutivePasses++;
-          if (state === "unknown") state = "stable";
+          if (state === 'unknown') state = 'stable';
         } else {
           if (consecutivePasses >= minStableRuns) {
             results.push({
               test_id: run.test_id,
               title: runs[0].title,
-              transition_type: "stable_to_flaky",
+              transition_type: 'stable_to_flaky',
               git_commit_sha: run.git_commit_sha,
               git_branch: run.git_branch,
               git_author: run.git_author,
@@ -312,7 +312,7 @@ export async function correlateGitCommitFlakiness(
           }
           consecutivePasses = 0;
           lastFailRun = run;
-          state = "flaky";
+          state = 'flaky';
         }
       } else {
         // state === "flaky"
@@ -325,14 +325,14 @@ export async function correlateGitCommitFlakiness(
             results.push({
               test_id: run.test_id,
               title: runs[0].title,
-              transition_type: "flaky_to_stable",
+              transition_type: 'flaky_to_stable',
               git_commit_sha: lastFailRun.git_commit_sha,
               git_branch: lastFailRun.git_branch,
               git_author: lastFailRun.git_author,
               transition_date: new Date(lastFailRun.timestamp).toISOString().slice(0, 10),
             });
             lastFailRun = null;
-            state = "stable";
+            state = 'stable';
           }
         }
       }
@@ -342,7 +342,7 @@ export async function correlateGitCommitFlakiness(
   return results;
 }
 
-function rowsToObjects<T>(queryResult: ReturnType<Database["exec"]>): T[] {
+function rowsToObjects<T>(queryResult: ReturnType<Database['exec']>): T[] {
   if (!queryResult.length) return [];
   const { columns, values } = queryResult[0];
   return values.map((row) => {

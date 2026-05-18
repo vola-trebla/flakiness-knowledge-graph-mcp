@@ -45,7 +45,7 @@ npm install && npm run build
 ```ts
 // playwright.config.ts
 export default defineConfig({
-  reporter: [["html"], ["flakiness-knowledge-graph-mcp/reporter", { dbPath: "./flakiness.db" }]],
+  reporter: [['html'], ['flakiness-knowledge-graph-mcp/reporter', { dbPath: './flakiness.db' }]],
 });
 ```
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import * as z from "zod/v4";
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import * as z from 'zod/v4';
 import {
   getFlakyTests,
   getTestHistory,
@@ -11,47 +11,47 @@ import {
   getFlakinessTrend,
   getRawFailures,
   correlateGitCommitFlakiness,
-} from "./db.js";
-import { clusterErrors } from "./clustering.js";
+} from './db.js';
+import { clusterErrors } from './clustering.js';
 
 const server = new McpServer({
-  name: "flakiness-knowledge-graph",
-  version: "0.1.0",
+  name: 'flakiness-knowledge-graph',
+  version: '0.1.0',
 });
 
 const dbInputSchema = z.object({
-  db_path: z.string().describe("Absolute path to the flakiness.db SQLite file"),
+  db_path: z.string().describe('Absolute path to the flakiness.db SQLite file'),
 });
 
 function errorResponse(err: unknown) {
   return {
     content: [
-      { type: "text" as const, text: `Error: ${err instanceof Error ? err.message : String(err)}` },
+      { type: 'text' as const, text: `Error: ${err instanceof Error ? err.message : String(err)}` },
     ],
     isError: true,
   };
 }
 
 server.registerTool(
-  "get_flaky_tests",
+  'get_flaky_tests',
   {
     description:
-      "Returns tests ranked by flakiness rate (failed+flaky / total runs). " +
-      "Use to answer: which tests are the most unreliable?",
+      'Returns tests ranked by flakiness rate (failed+flaky / total runs). ' +
+      'Use to answer: which tests are the most unreliable?',
     inputSchema: dbInputSchema.extend({
       min_runs: z
         .number()
         .int()
         .min(1)
         .default(3)
-        .describe("Minimum number of runs to consider a test (filters out one-off failures)"),
-      limit: z.number().int().min(1).max(100).default(20).describe("Max tests to return"),
+        .describe('Minimum number of runs to consider a test (filters out one-off failures)'),
+      limit: z.number().int().min(1).max(100).default(20).describe('Max tests to return'),
       since_days: z
         .number()
         .int()
         .min(1)
         .optional()
-        .describe("Only include runs from the last N days"),
+        .describe('Only include runs from the last N days'),
     }),
   },
   async ({ db_path, min_runs, limit, since_days }) => {
@@ -61,7 +61,7 @@ server.registerTool(
       return {
         content: [
           {
-            type: "text",
+            type: 'text',
             text: JSON.stringify({ total: tests.length, flaky_tests: tests }, null, 2),
           },
         ],
@@ -73,14 +73,14 @@ server.registerTool(
 );
 
 server.registerTool(
-  "get_test_history",
+  'get_test_history',
   {
     description:
-      "Returns the run history for a specific test — status, duration, error, retry count, " +
-      "browser, and OS for each run. Use to answer: is this test getting worse over time?",
+      'Returns the run history for a specific test — status, duration, error, retry count, ' +
+      'browser, and OS for each run. Use to answer: is this test getting worse over time?',
     inputSchema: dbInputSchema.extend({
-      test_id: z.string().describe("Test ID from get_flaky_tests"),
-      limit: z.number().int().min(1).max(200).default(50).describe("Max runs to return"),
+      test_id: z.string().describe('Test ID from get_flaky_tests'),
+      limit: z.number().int().min(1).max(200).default(50).describe('Max runs to return'),
     }),
   },
   async ({ db_path, test_id, limit }) => {
@@ -89,7 +89,7 @@ server.registerTool(
       return {
         content: [
           {
-            type: "text",
+            type: 'text',
             text: JSON.stringify({ test_id, total: history.length, runs: history }, null, 2),
           },
         ],
@@ -101,18 +101,18 @@ server.registerTool(
 );
 
 server.registerTool(
-  "get_failure_patterns",
+  'get_failure_patterns',
   {
     description:
-      "Breaks down failure rates by browser and OS combination. " +
-      "Use to answer: does this test only fail on Firefox? Only on Windows?",
+      'Breaks down failure rates by browser and OS combination. ' +
+      'Use to answer: does this test only fail on Firefox? Only on Windows?',
     inputSchema: dbInputSchema.extend({
       since_days: z
         .number()
         .int()
         .min(1)
         .optional()
-        .describe("Only include runs from the last N days"),
+        .describe('Only include runs from the last N days'),
     }),
   },
   async ({ db_path, since_days }) => {
@@ -120,7 +120,7 @@ server.registerTool(
       const since = since_days ? Date.now() - since_days * 86_400_000 : undefined;
       const patterns = await getFailurePatterns(db_path, { since });
       return {
-        content: [{ type: "text", text: JSON.stringify({ patterns }, null, 2) }],
+        content: [{ type: 'text', text: JSON.stringify({ patterns }, null, 2) }],
       };
     } catch (err) {
       return errorResponse(err);
@@ -129,13 +129,13 @@ server.registerTool(
 );
 
 server.registerTool(
-  "get_slow_tests",
+  'get_slow_tests',
   {
     description:
-      "Returns tests ranked by average duration. " +
-      "Use to answer: which tests are slowing down the CI pipeline?",
+      'Returns tests ranked by average duration. ' +
+      'Use to answer: which tests are slowing down the CI pipeline?',
     inputSchema: dbInputSchema.extend({
-      limit: z.number().int().min(1).max(100).default(20).describe("Max tests to return"),
+      limit: z.number().int().min(1).max(100).default(20).describe('Max tests to return'),
     }),
   },
   async ({ db_path, limit }) => {
@@ -144,7 +144,7 @@ server.registerTool(
       return {
         content: [
           {
-            type: "text",
+            type: 'text',
             text: JSON.stringify({ total: tests.length, slow_tests: tests }, null, 2),
           },
         ],
@@ -156,25 +156,25 @@ server.registerTool(
 );
 
 server.registerTool(
-  "get_error_groups",
+  'get_error_groups',
   {
     description:
-      "Groups failing tests by similar error messages to surface systemic failures. " +
-      "Use to answer: are 10 tests failing because of the same broken endpoint or shared root cause?",
+      'Groups failing tests by similar error messages to surface systemic failures. ' +
+      'Use to answer: are 10 tests failing because of the same broken endpoint or shared root cause?',
     inputSchema: dbInputSchema.extend({
       min_failures: z
         .number()
         .int()
         .min(1)
         .default(2)
-        .describe("Minimum number of failures sharing the same error to include"),
-      limit: z.number().int().min(1).max(100).default(20).describe("Max error groups to return"),
+        .describe('Minimum number of failures sharing the same error to include'),
+      limit: z.number().int().min(1).max(100).default(20).describe('Max error groups to return'),
       since_days: z
         .number()
         .int()
         .min(1)
         .optional()
-        .describe("Only include failures from the last N days"),
+        .describe('Only include failures from the last N days'),
     }),
   },
   async ({ db_path, min_failures, limit, since_days }) => {
@@ -184,7 +184,7 @@ server.registerTool(
       return {
         content: [
           {
-            type: "text",
+            type: 'text',
             text: JSON.stringify({ total: groups.length, error_groups: groups }, null, 2),
           },
         ],
@@ -196,14 +196,14 @@ server.registerTool(
 );
 
 server.registerTool(
-  "get_flakiness_trend",
+  'get_flakiness_trend',
   {
     description:
-      "Returns the daily flakiness rate for a specific test over the last N days. " +
-      "Use to answer: is this test getting worse, better, or staying the same?",
+      'Returns the daily flakiness rate for a specific test over the last N days. ' +
+      'Use to answer: is this test getting worse, better, or staying the same?',
     inputSchema: dbInputSchema.extend({
-      test_id: z.string().describe("Test ID from get_flaky_tests"),
-      days: z.number().int().min(1).max(365).default(30).describe("Number of days to look back"),
+      test_id: z.string().describe('Test ID from get_flaky_tests'),
+      days: z.number().int().min(1).max(365).default(30).describe('Number of days to look back'),
     }),
   },
   async ({ db_path, test_id, days }) => {
@@ -212,7 +212,7 @@ server.registerTool(
       return {
         content: [
           {
-            type: "text",
+            type: 'text',
             text: JSON.stringify({ test_id, days, buckets: trend }, null, 2),
           },
         ],
@@ -224,28 +224,28 @@ server.registerTool(
 );
 
 server.registerTool(
-  "cluster_semantic_error_trees",
+  'cluster_semantic_error_trees',
   {
     description:
-      "Groups test failures by semantic error similarity rather than raw string prefix. " +
-      "Strips dynamic values (UUIDs, numeric IDs, hashes, timestamps, URLs) via regex, then " +
-      "applies Levenshtein fuzzy matching to merge errors that differ only in minor dynamic " +
-      "fragments. Classifies each cluster by taxonomy (TimeoutError, AssertionError, " +
-      "NetworkError, ReferenceError). Use instead of get_error_groups when failure messages " +
-      "contain dynamic IDs or selector attributes that make identical root causes look different.",
+      'Groups test failures by semantic error similarity rather than raw string prefix. ' +
+      'Strips dynamic values (UUIDs, numeric IDs, hashes, timestamps, URLs) via regex, then ' +
+      'applies Levenshtein fuzzy matching to merge errors that differ only in minor dynamic ' +
+      'fragments. Classifies each cluster by taxonomy (TimeoutError, AssertionError, ' +
+      'NetworkError, ReferenceError). Use instead of get_error_groups when failure messages ' +
+      'contain dynamic IDs or selector attributes that make identical root causes look different.',
     inputSchema: dbInputSchema.extend({
       min_instances: z
         .number()
         .int()
         .min(1)
         .default(2)
-        .describe("Minimum number of failure instances to include a cluster"),
+        .describe('Minimum number of failure instances to include a cluster'),
       since_days: z
         .number()
         .int()
         .min(1)
         .optional()
-        .describe("Only include failures from the last N days"),
+        .describe('Only include failures from the last N days'),
     }),
   },
   async ({ db_path, min_instances, since_days }) => {
@@ -256,7 +256,7 @@ server.registerTool(
       return {
         content: [
           {
-            type: "text",
+            type: 'text',
             text: JSON.stringify({ total_clusters: clusters.length, clusters }, null, 2),
           },
         ],
@@ -268,14 +268,14 @@ server.registerTool(
 );
 
 server.registerTool(
-  "correlate_git_commit_flakiness",
+  'correlate_git_commit_flakiness',
   {
     description:
-      "Finds the exact point where a test transitioned from stable to flaky (or back), " +
-      "and returns the git commit SHA, branch, and author at that transition. " +
-      "Requires the Playwright reporter to be running in a CI environment where " +
-      "GITHUB_SHA / CI_COMMIT_SHA / CIRCLE_SHA1 env vars are set. " +
-      "Use to answer: which commit broke this test, and who authored it?",
+      'Finds the exact point where a test transitioned from stable to flaky (or back), ' +
+      'and returns the git commit SHA, branch, and author at that transition. ' +
+      'Requires the Playwright reporter to be running in a CI environment where ' +
+      'GITHUB_SHA / CI_COMMIT_SHA / CIRCLE_SHA1 env vars are set. ' +
+      'Use to answer: which commit broke this test, and who authored it?',
     inputSchema: dbInputSchema.extend({
       min_stable_runs: z
         .number()
@@ -291,7 +291,7 @@ server.registerTool(
         .int()
         .min(1)
         .optional()
-        .describe("Only look at runs from the last N days"),
+        .describe('Only look at runs from the last N days'),
     }),
   },
   async ({ db_path, min_stable_runs, since_days }) => {
@@ -304,7 +304,7 @@ server.registerTool(
       return {
         content: [
           {
-            type: "text",
+            type: 'text',
             text: JSON.stringify({ total_transitions: transitions.length, transitions }, null, 2),
           },
         ],

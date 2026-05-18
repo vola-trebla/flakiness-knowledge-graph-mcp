@@ -14,9 +14,9 @@
  *   - get_slow_tests         — one test with consistently high duration
  */
 
-import { insertRun } from "./db.js";
+import { insertRun } from './db.js';
 
-const DB_PATH = process.argv[2] ?? "flakiness.db";
+const DB_PATH = process.argv[2] ?? 'flakiness.db';
 const NOW = Date.now();
 const DAY = 86_400_000;
 
@@ -36,7 +36,7 @@ interface RunSpec {
   test_id: string;
   title: string;
   suite: string;
-  status: "passed" | "failed" | "flaky" | "skipped";
+  status: 'passed' | 'failed' | 'flaky' | 'skipped';
   duration_ms: number;
   browser: string;
   os: string;
@@ -53,15 +53,15 @@ for (let d = 30; d >= 0; d--) {
   for (let i = 0; i < count; i++) {
     const pass = Math.random() > 0.05;
     runs.push({
-      test_id: "test-login-001",
-      title: "User can log in",
-      suite: "Auth",
-      status: pass ? "passed" : "failed",
+      test_id: 'test-login-001',
+      title: 'User can log in',
+      suite: 'Auth',
+      status: pass ? 'passed' : 'failed',
       duration_ms: jitter(1200),
-      browser: "chromium",
-      os: "linux",
+      browser: 'chromium',
+      os: 'linux',
       timestamp: daysAgo(d) + i * 3600_000,
-      error: pass ? undefined : "Error: Expected element to be visible",
+      error: pass ? undefined : 'Error: Expected element to be visible',
       retry: 0,
     });
   }
@@ -72,13 +72,13 @@ for (let d = 30; d >= 0; d--) {
   const pass = Math.random() > 0.25;
   const retry = !pass && Math.random() > 0.5 ? 1 : 0;
   runs.push({
-    test_id: "test-checkout-002",
-    title: "Checkout flow completes",
-    suite: "E-Commerce",
-    status: pass ? "passed" : retry > 0 ? "flaky" : "failed",
+    test_id: 'test-checkout-002',
+    title: 'Checkout flow completes',
+    suite: 'E-Commerce',
+    status: pass ? 'passed' : retry > 0 ? 'flaky' : 'failed',
     duration_ms: jitter(4500),
-    browser: pick(["chromium", "firefox"]),
-    os: "linux",
+    browser: pick(['chromium', 'firefox']),
+    os: 'linux',
     timestamp: daysAgo(d),
     error: pass
       ? undefined
@@ -92,13 +92,13 @@ for (let d = 30; d >= 0; d--) {
   const failRate = d > 10 ? 0.05 : 0.07 * (11 - d); // 0.07 → 0.70 over 10 days
   const pass = Math.random() > failRate;
   runs.push({
-    test_id: "test-cart-003",
-    title: "Add item to cart",
-    suite: "E-Commerce",
-    status: pass ? "passed" : "failed",
+    test_id: 'test-cart-003',
+    title: 'Add item to cart',
+    suite: 'E-Commerce',
+    status: pass ? 'passed' : 'failed',
     duration_ms: jitter(2200),
-    browser: "chromium",
-    os: "linux",
+    browser: 'chromium',
+    os: 'linux',
     timestamp: daysAgo(d),
     error: pass ? undefined : "Error: locator('.add-to-cart') is not attached to the DOM",
     retry: 0,
@@ -106,20 +106,20 @@ for (let d = 30; d >= 0; d--) {
 }
 
 // --- 4. Browser-specific modal — only fails on webkit ---
-const browsers = ["chromium", "firefox", "webkit"] as const;
+const browsers = ['chromium', 'firefox', 'webkit'] as const;
 for (let d = 30; d >= 0; d--) {
   for (const browser of browsers) {
-    const pass = browser !== "webkit" || Math.random() > 0.8;
+    const pass = browser !== 'webkit' || Math.random() > 0.8;
     runs.push({
-      test_id: "test-modal-004",
-      title: "Modal dialog closes on Escape",
-      suite: "UI",
-      status: pass ? "passed" : "failed",
+      test_id: 'test-modal-004',
+      title: 'Modal dialog closes on Escape',
+      suite: 'UI',
+      status: pass ? 'passed' : 'failed',
       duration_ms: jitter(800),
       browser,
-      os: "linux",
+      os: 'linux',
       timestamp: daysAgo(d),
-      error: pass ? undefined : "Error: Expected modal to be hidden, but it is still visible",
+      error: pass ? undefined : 'Error: Expected modal to be hidden, but it is still visible',
       retry: 0,
     });
   }
@@ -128,13 +128,13 @@ for (let d = 30; d >= 0; d--) {
 // --- 5. Slow PDF report test ---
 for (let d = 30; d >= 0; d--) {
   runs.push({
-    test_id: "test-report-005",
-    title: "Generate PDF report",
-    suite: "Reports",
-    status: "passed",
+    test_id: 'test-report-005',
+    title: 'Generate PDF report',
+    suite: 'Reports',
+    status: 'passed',
     duration_ms: jitter(18000, 0.3),
-    browser: "chromium",
-    os: "linux",
+    browser: 'chromium',
+    os: 'linux',
     timestamp: daysAgo(d),
     retry: 0,
   });
@@ -142,13 +142,13 @@ for (let d = 30; d >= 0; d--) {
 
 // --- 6-8. Error group — three API tests all hit the same backend timeout ---
 const apiTests = [
-  { id: "test-api-006", title: "Fetch user profile", suite: "API" },
-  { id: "test-api-007", title: "Fetch order history", suite: "API" },
-  { id: "test-api-008", title: "Submit contact form", suite: "API" },
+  { id: 'test-api-006', title: 'Fetch user profile', suite: 'API' },
+  { id: 'test-api-007', title: 'Fetch order history', suite: 'API' },
+  { id: 'test-api-008', title: 'Submit contact form', suite: 'API' },
 ];
 
 const sharedError =
-  "Error: connect ECONNREFUSED 127.0.0.1:3001\n    at TCPConnectWrap.afterConnect";
+  'Error: connect ECONNREFUSED 127.0.0.1:3001\n    at TCPConnectWrap.afterConnect';
 
 for (let d = 30; d >= 0; d--) {
   // Cluster failures on specific days (simulates backend outages)
@@ -159,10 +159,10 @@ for (let d = 30; d >= 0; d--) {
       test_id: t.id,
       title: t.title,
       suite: t.suite,
-      status: pass ? "passed" : "failed",
+      status: pass ? 'passed' : 'failed',
       duration_ms: jitter(950),
-      browser: "chromium",
-      os: "linux",
+      browser: 'chromium',
+      os: 'linux',
       timestamp: daysAgo(d),
       error: pass ? undefined : sharedError,
       retry: 0,
@@ -173,13 +173,13 @@ for (let d = 30; d >= 0; d--) {
 // --- 9. Stable signup test ---
 for (let d = 30; d >= 0; d--) {
   runs.push({
-    test_id: "test-signup-009",
-    title: "User can sign up",
-    suite: "Auth",
-    status: "passed",
+    test_id: 'test-signup-009',
+    title: 'User can sign up',
+    suite: 'Auth',
+    status: 'passed',
     duration_ms: jitter(1800),
-    browser: "chromium",
-    os: "linux",
+    browser: 'chromium',
+    os: 'linux',
     timestamp: daysAgo(d),
     retry: 0,
   });
