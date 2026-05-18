@@ -106,22 +106,22 @@ I've been running my Playwright suite for two weeks. The DB is at /my-project/fl
   "total_clusters": 2,
   "clusters": [
     {
-      "normalized_signature": "TimeoutError: locator.click: Timeout <num>ms exceeded waiting for locator",
-      "error_taxonomy": "timeout",
+      "cluster_id": "cluster-1",
+      "canonical_message": "TimeoutError: locator.click: Timeout 30000ms exceeded\n  waiting for locator('#submit-btn')",
+      "normalized_message": "TimeoutError: locator.click: Timeout <num>ms exceeded waiting for locator",
+      "error_taxonomy": "TimeoutError",
       "instance_count": 14,
-      "affected_test_ids": [
-        "checkout > submit order",
-        "cart > add item",
-        "checkout > apply coupon"
-      ],
-      "example_raw_error": "TimeoutError: locator.click: Timeout 30000ms exceeded\n  waiting for locator('#submit-btn')"
+      "affected_tests": 3,
+      "sample_test_ids": ["checkout > submit order", "cart > add item", "checkout > apply coupon"]
     },
     {
-      "normalized_signature": "Error: <num> requests to <url> were made. Expected <num>",
-      "error_taxonomy": "assertion",
+      "cluster_id": "cluster-2",
+      "canonical_message": "Error: 2 requests to https://api.example.com/orders/8f3a1c were made. Expected 1",
+      "normalized_message": "Error: <num> requests to <url> were made. Expected <num>",
+      "error_taxonomy": "AssertionError",
       "instance_count": 6,
-      "affected_test_ids": ["api-mock > intercept order"],
-      "example_raw_error": "Error: 2 requests to https://api.example.com/orders/8f3a1c were made. Expected 1"
+      "affected_tests": 1,
+      "sample_test_ids": ["api-mock > intercept order"]
     }
   ]
 }
