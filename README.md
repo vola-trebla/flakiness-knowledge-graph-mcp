@@ -15,14 +15,16 @@ This tool fixes that by accumulating run history into a SQLite database and expo
 
 ## 🛠️ Tools
 
-| Tool                   | Arguments                                           | What it returns                                                                    |
-| ---------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `get_flaky_tests`      | `db_path`, `min_runs?`, `limit?`, `since_days?`     | Tests ranked by flakiness rate (failed+flaky / total runs)                         |
-| `get_test_history`     | `db_path`, `test_id`, `limit?`                      | Full run history for a specific test — status, duration, error, retry, browser, OS |
-| `get_failure_patterns` | `db_path`, `since_days?`                            | Failure rates broken down by browser × OS combination                              |
-| `get_slow_tests`       | `db_path`, `limit?`                                 | Tests ranked by average duration                                                   |
-| `get_error_groups`     | `db_path`, `min_failures?`, `limit?`, `since_days?` | Failures clustered by error message — surfaces shared root causes across tests     |
-| `get_flakiness_trend`  | `db_path`, `test_id`, `days?`                       | Daily flakiness rate over the last N days — shows whether a test is getting worse  |
+| Tool                             | Arguments                                           | What it returns                                                                                                    |
+| -------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `get_flaky_tests`                | `db_path`, `min_runs?`, `limit?`, `since_days?`     | Tests ranked by flakiness rate (failed+flaky / total runs)                                                         |
+| `get_test_history`               | `db_path`, `test_id`, `limit?`                      | Full run history for a specific test — status, duration, error, retry, browser, OS                                 |
+| `get_failure_patterns`           | `db_path`, `since_days?`                            | Failure rates broken down by browser × OS combination                                                              |
+| `get_slow_tests`                 | `db_path`, `limit?`                                 | Tests ranked by average duration                                                                                   |
+| `get_error_groups`               | `db_path`, `min_failures?`, `limit?`, `since_days?` | Failures clustered by exact error prefix — surfaces shared root causes across tests                                |
+| `get_flakiness_trend`            | `db_path`, `test_id`, `days?`                       | Daily flakiness rate over the last N days — shows whether a test is getting worse                                  |
+| `cluster_semantic_error_trees`   | `db_path`, `min_instances?`, `since_days?`          | Like `get_error_groups` but normalises dynamic values (UUIDs, IDs, URLs) first, then fuzzy-merges with Levenshtein |
+| `correlate_git_commit_flakiness` | `db_path`, `min_stable_runs?`, `since_days?`        | Finds the exact commit SHA where a test transitioned stable→flaky (or back), with branch and author                |
 
 ## 🚀 Setup
 
@@ -79,7 +81,7 @@ No Playwright project yet? Generate 30 days of realistic sample data:
 npx flakiness-graph-seed ./demo.db
 ```
 
-Then point your AI agent at `./demo.db` to explore all 6 tools.
+Then point your AI agent at `./demo.db` to explore all 8 tools.
 
 ## 💬 Example usage
 
@@ -90,15 +92,69 @@ I've been running my Playwright suite for two weeks. The DB is at /my-project/fl
 2. get_test_history for the top flaky test — is it getting worse?
 3. get_flakiness_trend for the same test over 14 days — plot the daily rate.
 4. get_failure_patterns — does it only fail on a specific browser or OS?
-5. get_error_groups — are multiple tests failing with the same error? That's a backend issue.
-6. get_slow_tests — which tests should I optimize for CI speed?
+5. cluster_semantic_error_trees — are multiple tests failing with semantically identical errors?
+6. correlate_git_commit_flakiness — which commit introduced the flakiness?
+7. get_slow_tests — which tests should I optimize for CI speed?
 ```
+
+### Grouping errors that look different but aren't
+
+`get_error_groups` clusters by raw string prefix — if the error contains a UUID or element ID it creates separate groups for what is really one root cause. `cluster_semantic_error_trees` strips dynamic values first:
+
+```json
+{
+  "total_clusters": 2,
+  "clusters": [
+    {
+      "normalized_signature": "TimeoutError: locator.click: Timeout <num>ms exceeded waiting for locator",
+      "error_taxonomy": "timeout",
+      "instance_count": 14,
+      "affected_test_ids": [
+        "checkout > submit order",
+        "cart > add item",
+        "checkout > apply coupon"
+      ],
+      "example_raw_error": "TimeoutError: locator.click: Timeout 30000ms exceeded\n  waiting for locator('#submit-btn')"
+    },
+    {
+      "normalized_signature": "Error: <num> requests to <url> were made. Expected <num>",
+      "error_taxonomy": "assertion",
+      "instance_count": 6,
+      "affected_test_ids": ["api-mock > intercept order"],
+      "example_raw_error": "Error: 2 requests to https://api.example.com/orders/8f3a1c were made. Expected 1"
+    }
+  ]
+}
+```
+
+### Finding the commit that broke a test
+
+`correlate_git_commit_flakiness` uses a state machine — it looks for runs where a test was stable for ≥3 consecutive passes, then failed. The transition record includes the SHA from the CI environment:
+
+```json
+{
+  "total_transitions": 1,
+  "transitions": [
+    {
+      "test_id": "auth > login > should redirect after login",
+      "title": "should redirect after login",
+      "transition_type": "stable_to_flaky",
+      "git_commit_sha": "a3f8c1d9e2b54f6a",
+      "git_branch": "main",
+      "git_author": "dev-handle",
+      "transition_date": "2025-04-14"
+    }
+  ]
+}
+```
+
+The reporter reads `GITHUB_SHA` / `CI_COMMIT_SHA` / `CIRCLE_SHA1` / `GIT_COMMIT` automatically — no reporter config changes needed beyond upgrading to v0.2.0.
 
 ## 🔗 Works great with playwright-trace-decoder-mcp
 
 These two MCP servers are designed to complement each other:
 
-- **flakiness-knowledge-graph-mcp** answers "is this test flaky historically?"
+- **flakiness-knowledge-graph-mcp** answers "is this test flaky historically, and which commit caused it?"
 - **[playwright-trace-decoder-mcp](https://github.com/vola-trebla/playwright-trace-decoder-mcp)** answers "what exactly failed in this specific run?"
 
 Combined, an AI agent can diagnose whether a CI failure is a known flaky test or a new regression — without you opening a single file.
@@ -113,13 +169,14 @@ flakiness.db
   └── test_runs table
         id, test_id, title, suite, file,
         status, duration_ms, browser, os,
-        timestamp, error, retry
+        timestamp, error, retry,
+        git_commit_sha, git_branch, git_author   ← added in v0.2.0
 
 MCP server
   └── reads flakiness.db on demand (in-process handle reuse)
 ```
 
-`sql.js` is used instead of `better-sqlite3` — pure JavaScript SQLite compiled to WebAssembly, no native compilation needed.
+`sql.js` is used instead of `better-sqlite3` — pure JavaScript SQLite compiled to WebAssembly, no native compilation needed. The git columns are added via `ALTER TABLE` migration on first use — existing databases upgrade automatically.
 
 ## 📋 Scripts
 
