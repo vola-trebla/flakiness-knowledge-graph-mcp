@@ -1,6 +1,12 @@
 import { readFileSync, existsSync, writeFileSync } from "fs";
 import initSqlJs, { Database } from "sql.js";
-import { TestRun, FlakinessStats, ErrorGroup, TrendBucket } from "./types.js";
+import {
+  TestRun,
+  FlakinessStats,
+  ErrorGroup,
+  TrendBucket,
+  GitFlakinessTransition,
+} from "./types.js";
 
 // Per-path DB handles so multiple projects don't share state
 const dbCache = new Map<string, Database>();
@@ -36,11 +42,22 @@ function applySchema(database: Database): void {
       os TEXT NOT NULL DEFAULT 'unknown',
       timestamp INTEGER NOT NULL,
       error TEXT,
-      retry INTEGER NOT NULL DEFAULT 0
+      retry INTEGER NOT NULL DEFAULT 0,
+      git_commit_sha TEXT,
+      git_branch TEXT,
+      git_author TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_test_id ON test_runs(test_id);
     CREATE INDEX IF NOT EXISTS idx_timestamp ON test_runs(timestamp);
   `);
+  // Migration for existing tables that predate git columns
+  for (const col of ["git_commit_sha TEXT", "git_branch TEXT", "git_author TEXT"]) {
+    try {
+      database.run(`ALTER TABLE test_runs ADD COLUMN ${col}`);
+    } catch {
+      // column already exists — ignore
+    }
+  }
 }
 
 // Serialise all writes through a per-path promise chain so parallel
@@ -56,8 +73,9 @@ export async function insertRun(path: string, run: Omit<TestRun, "id">): Promise
 
     db.run(
       `INSERT INTO test_runs
-       (test_id, title, suite, file, status, duration_ms, browser, os, timestamp, error, retry)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (test_id, title, suite, file, status, duration_ms, browser, os, timestamp, error, retry,
+        git_commit_sha, git_branch, git_author)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         run.test_id,
         run.title,
@@ -70,6 +88,9 @@ export async function insertRun(path: string, run: Omit<TestRun, "id">): Promise
         run.timestamp,
         run.error ?? null,
         run.retry,
+        run.git_commit_sha ?? null,
+        run.git_branch ?? null,
+        run.git_author ?? null,
       ]
     );
     persist(db, path);
@@ -219,6 +240,106 @@ export async function getRawFailures(
     LIMIT ${limit}
   `);
   return rowsToObjects(res);
+}
+
+type RunRow = {
+  test_id: string;
+  title: string;
+  status: string;
+  timestamp: number;
+  git_commit_sha: string | null;
+  git_branch: string | null;
+  git_author: string | null;
+};
+
+export async function correlateGitCommitFlakiness(
+  path: string,
+  { since, minStableRuns = 3 }: { since?: number; minStableRuns?: number } = {}
+): Promise<GitFlakinessTransition[]> {
+  const database = await getDb(path);
+  const sinceClause = since ? `AND timestamp >= ${since}` : "";
+
+  // Fetch runs for tests that have both passing and failing/flaky results
+  const res = database.exec(`
+    SELECT test_id, title, status, timestamp, git_commit_sha, git_branch, git_author
+    FROM test_runs
+    WHERE test_id IN (
+      SELECT test_id FROM test_runs
+      WHERE 1=1 ${sinceClause}
+      GROUP BY test_id
+      HAVING SUM(CASE WHEN status IN ('failed','flaky') THEN 1 ELSE 0 END) > 0
+         AND SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) > 0
+    ) ${sinceClause}
+    ORDER BY test_id, timestamp ASC
+  `);
+
+  const allRows = rowsToObjects<RunRow>(res);
+
+  // Group by test_id
+  const byTest = new Map<string, RunRow[]>();
+  for (const row of allRows) {
+    const list = byTest.get(row.test_id);
+    if (list) list.push(row);
+    else byTest.set(row.test_id, [row]);
+  }
+
+  const results: GitFlakinessTransition[] = [];
+
+  for (const [, runs] of byTest) {
+    let consecutivePasses = 0;
+    let lastFailRun: RunRow | null = null;
+    type State = "unknown" | "stable" | "flaky";
+    let state: State = "unknown";
+
+    for (const run of runs) {
+      const isBad = run.status === "failed" || run.status === "flaky";
+
+      if (state === "unknown" || state === "stable") {
+        if (!isBad) {
+          consecutivePasses++;
+          if (state === "unknown") state = "stable";
+        } else {
+          if (consecutivePasses >= minStableRuns) {
+            results.push({
+              test_id: run.test_id,
+              title: runs[0].title,
+              transition_type: "stable_to_flaky",
+              git_commit_sha: run.git_commit_sha,
+              git_branch: run.git_branch,
+              git_author: run.git_author,
+              transition_date: new Date(run.timestamp).toISOString().slice(0, 10),
+            });
+          }
+          consecutivePasses = 0;
+          lastFailRun = run;
+          state = "flaky";
+        }
+      } else {
+        // state === "flaky"
+        if (isBad) {
+          lastFailRun = run;
+          consecutivePasses = 0;
+        } else {
+          consecutivePasses++;
+          if (consecutivePasses >= minStableRuns && lastFailRun) {
+            results.push({
+              test_id: run.test_id,
+              title: runs[0].title,
+              transition_type: "flaky_to_stable",
+              git_commit_sha: lastFailRun.git_commit_sha,
+              git_branch: lastFailRun.git_branch,
+              git_author: lastFailRun.git_author,
+              transition_date: new Date(lastFailRun.timestamp).toISOString().slice(0, 10),
+            });
+            lastFailRun = null;
+            state = "stable";
+          }
+        }
+      }
+    }
+  }
+
+  return results;
 }
 
 function rowsToObjects<T>(queryResult: ReturnType<Database["exec"]>): T[] {
