@@ -25,8 +25,11 @@ const NORMALIZERS: Array<[RegExp, string]> = [
   [/\s+/g, " "],
 ];
 
+ 
+const ANSI_RE = /\x1b\[[0-9;]*[mGKHF]/g;
+
 export function normalizeError(msg: string): string {
-  let s = msg.trim();
+  let s = msg.replace(ANSI_RE, "").trim();
   for (const [pattern, replacement] of NORMALIZERS) {
     s = s.replace(pattern, replacement);
   }
@@ -125,7 +128,7 @@ export function clusterErrors(
       const testIds = [...new Set(g.items.map((i) => i.test_id))];
       return {
         cluster_id: `cluster-${idx + 1}`,
-        canonical_message: g.items[0].error.slice(0, 300),
+        canonical_message: g.items[0].error.replace(ANSI_RE, "").slice(0, 300),
         normalized_message: g.norm.slice(0, 200),
         instance_count: g.items.length,
         affected_tests: testIds.length,
