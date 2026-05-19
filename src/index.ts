@@ -16,7 +16,7 @@ import { clusterErrors } from "./clustering.js";
 
 const server = new McpServer({
   name: "flakiness-knowledge-graph",
-  version: "0.1.0",
+  version: "0.2.1",
 });
 
 const dbInputSchema = z.object({

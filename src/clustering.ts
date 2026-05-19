@@ -36,8 +36,8 @@ export function normalizeError(msg: string): string {
 }
 
 export function classifyError(msg: string): SemanticCluster["error_taxonomy"] {
-  if (/timeout/i.test(msg)) return "TimeoutError";
   if (/expect|assert|toEqual|toBe|toHave|Expected/i.test(msg)) return "AssertionError";
+  if (/timeout/i.test(msg)) return "TimeoutError";
   if (/net::|ERR_|ECONNREFUSED|Failed to fetch|ETIMEDOUT|ENOTFOUND/i.test(msg))
     return "NetworkError";
   if (/ReferenceError|TypeError|is not defined|Cannot read/i.test(msg)) return "ReferenceError";

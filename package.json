@@ -15,7 +15,8 @@
   "files": [
     "dist/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "server.json"
   ],
   "scripts": {
     "build": "tsc && chmod +x dist/index.js dist/seed.js",
