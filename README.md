@@ -159,6 +159,18 @@ These two MCP servers are designed to complement each other:
 
 Combined, an AI agent can diagnose whether a CI failure is a known flaky test or a new regression — without you opening a single file.
 
+## ⚖️ Parallel Execution & CI Sharding
+
+`flakiness-knowledge-graph-mcp` uses an in-process write queue to ensure that parallel Playwright workers within a **single Node process** do not corrupt the database.
+
+However, if you run tests across **multiple independent processes** (e.g., parallel CI shards or separate machine runners) writing to the same shared network file:
+
+1. **Race Conditions:** Standard file systems do not guarantee atomic writes for SQLite files across processes without OS-level locking.
+2. **Recommended Approach:** Each CI shard should write to its own database file (e.g., `flakiness-shard-1.db`, `flakiness-shard-2.db`).
+3. **Merging:** At the end of the CI pipeline, you can merge these files into a single master database using standard SQLite tools or by running a script that reads from one and inserts into the other.
+
+For local development or single-machine CI runs, the default configuration is safe.
+
 ## 🏗️ Architecture
 
 ```

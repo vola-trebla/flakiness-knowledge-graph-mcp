@@ -11,7 +11,9 @@ import {
 // Per-path DB handles so multiple projects don't share state
 const dbCache = new Map<string, { db: Database; mtime: number }>();
 
-// Per-path write queues to serialise concurrent worker writes
+// Per-path write queues to serialise concurrent worker writes within a single process.
+// Note: This does NOT protect against multiple independent processes (e.g. CI shards)
+// writing to the same file simultaneously. See README.md for sharding recommendations.
 const writeQueues = new Map<string, Promise<void>>();
 
 async function getDb(path: string): Promise<Database> {
