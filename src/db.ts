@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, writeFileSync } from "fs";
+import { readFileSync, existsSync, writeFileSync, statSync } from "fs";
 import initSqlJs, { Database } from "sql.js";
 import {
   TestRun,
@@ -9,18 +9,23 @@ import {
 } from "./types.js";
 
 // Per-path DB handles so multiple projects don't share state
-const dbCache = new Map<string, Database>();
+const dbCache = new Map<string, { db: Database; mtime: number }>();
 
 // Per-path write queues to serialise concurrent worker writes
 const writeQueues = new Map<string, Promise<void>>();
 
 async function getDb(path: string): Promise<Database> {
+  const mtime = existsSync(path) ? statSync(path).mtimeMs : 0;
   const cached = dbCache.get(path);
-  if (cached) return cached;
+
+  if (cached && cached.mtime === mtime) {
+    return cached.db;
+  }
+
   const SQL = await initSqlJs();
   const db = existsSync(path) ? new SQL.Database(readFileSync(path)) : new SQL.Database();
   applySchema(db);
-  dbCache.set(path, db);
+  dbCache.set(path, { db, mtime });
   return db;
 }
 
@@ -65,11 +70,9 @@ function applySchema(database: Database): void {
 export async function insertRun(path: string, run: Omit<TestRun, "id">): Promise<void> {
   const prev = writeQueues.get(path) ?? Promise.resolve();
   const next = prev.then(async () => {
-    // Re-read from disk each time so we don't miss writes from other workers
     const SQL = await initSqlJs();
     const db = existsSync(path) ? new SQL.Database(readFileSync(path)) : new SQL.Database();
     applySchema(db);
-    dbCache.set(path, db);
 
     db.run(
       `INSERT INTO test_runs
@@ -94,6 +97,8 @@ export async function insertRun(path: string, run: Omit<TestRun, "id">): Promise
       ]
     );
     persist(db, path);
+    const mtime = statSync(path).mtimeMs;
+    dbCache.set(path, { db, mtime });
   });
   writeQueues.set(path, next);
   await next;
